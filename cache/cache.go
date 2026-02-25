@@ -1,37 +1,35 @@
 package cache
 
 import (
+	"container/heap"
 	"time"
 )
 
-// Requirements of a cache (Since I am implementing LRU cache, i have requirements based on that)
-// 1. user should be able to store key, value, so that would be a put operation
-// 2. user should be able to get the value using the key
-// 3. when a user gets the a key, that key would now become the most frequently used one
-// 4.I would also need to implement eviction mechanism that remove the LRU key
-// 5. On last thing that can be added is tha time to live (TTL) for each key. (Need to look into the strategies for this)
-
+// TODO: add ttl to live strategy
 type node struct {
-	key   int
-	value int
-	prev  *node
-	next  *node
+	key       int
+	value     int
+	prev      *node
+	next      *node
+	expiresAt time.Time
 }
 
 type cache struct {
-	capacity int
-	keyMap   map[int]*node
-	head     *node
-	tail     *node
-	ttl      time.Time
+	capacity    int
+	keyMap      map[int]*node
+	head        *node
+	tail        *node
+	ttlDuration time.Duration
+	expiryHeap  heap.Interface
 }
 
 func CreateCache(capacity int) *cache {
 	c := &cache{
-		capacity: capacity,
-		keyMap:   make(map[int]*node),
-		head:     &node{},
-		tail:     &node{},
+		capacity:    capacity,
+		keyMap:      make(map[int]*node),
+		head:        &node{},
+		tail:        &node{},
+		ttlDuration: time.Duration(10 * time.Second),
 	}
 	c.head.next = c.tail
 	c.tail.prev = c.head
@@ -69,6 +67,10 @@ func (c *cache) evictLru() {
 func (c *cache) Get(key int) int {
 	if currNode, ok := c.keyMap[key]; ok {
 		c.remove(currNode)
+		if time.Now().After(currNode.expiresAt) {
+			delete(c.keyMap, key)
+			return -1
+		}
 		c.addToMru(currNode)
 		return currNode.value
 	}
@@ -79,10 +81,11 @@ func (c *cache) Put(key int, val int) bool {
 	if existingNode, ok := c.keyMap[key]; ok {
 		c.remove(existingNode)
 		existingNode.value = val
+		existingNode.expiresAt = time.Now().Add(c.ttlDuration)
 		c.addToMru(existingNode)
 		return false
 	}
-	newNode := &node{key: key, value: val}
+	newNode := &node{key: key, value: val, expiresAt: time.Now().Add(c.ttlDuration)}
 	c.addToMru(newNode)
 	c.keyMap[key] = newNode
 	if len(c.keyMap) > c.capacity {
