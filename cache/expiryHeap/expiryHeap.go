@@ -2,7 +2,7 @@ package expiryheap
 
 import "aryan-errs/simple-cache/cache/types"
 
-type ExpiryHeap []types.ExpiryItem
+type ExpiryHeap []*types.ExpiryItem
 
 func (h ExpiryHeap) Len() int {
 	return len(h)
@@ -17,19 +17,18 @@ func (h ExpiryHeap) Swap(i int, j int) {
 }
 
 func (h ExpiryHeap) Peak() types.ExpiryItem {
-	n := len(h)
-	return h[n-1]
+	return *h[0]
 }
 
 func (h *ExpiryHeap) Push(x any) {
-	*h = append(*h, x.(types.ExpiryItem))
+	*h = append(*h, x.(*types.ExpiryItem))
 }
 
 func (h *ExpiryHeap) Pop() any {
 	old := *h
 	n := len(old)
 	x := old[n-1]
-	old[n-1] = types.ExpiryItem{}
+	old[n-1] = &types.ExpiryItem{}
 	*h = old[0 : n-1]
 	return x
 }
